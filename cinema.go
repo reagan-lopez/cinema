@@ -147,7 +147,7 @@ func (v *Video) Filters() []string {
 	return v.filters
 }
 
-// Get the current Filters using in the -vf flag of ffmpeg
+// Get the output ffmpeg command cinema will run at .Render()
 func (v *Video) FFMPEG(output string) string {
 	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
 	cmd := "ffmpeg" + " " +
