@@ -65,6 +65,8 @@ func main() { // cinema/test/test.go
 - [x] implement fps support
 - [ ] implement bitrate support
 
+Feel free to open pull requests!
+
 ## Contact
 [jtguibas](https://github.com/jtguibas)
 
