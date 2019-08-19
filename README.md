@@ -52,11 +52,11 @@ func main() { // cinema/test/test.go
 ## TODO
 
 - [ ] add concatenation support
-- [ ] improve godoc documentation
-- [ ] add cropping support
+- [x] improve godoc documentation
+- [x] add cropping support
 - [ ] expand to audio
 - [ ] test windows and ubuntu support 
-- [ ] implement fps support
+- [x] implement fps support
 - [ ] implement bitrate support
 
 ## Contact

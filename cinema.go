@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/tidwall/gjson"
 )
@@ -14,9 +15,11 @@ type Video struct {
 	filepath string
 	width    int64
 	height   int64
+	fps      int64
 	start    float64
 	end      float64
 	duration float64
+	filters  []string
 }
 
 // MakeVideo takes in the filepath of any videofile supported by FFMPEG.
@@ -43,16 +46,18 @@ func MakeVideo(filepath string) (Video, error) {
 // Currently supports trimming, scaling, and video format conversion.
 func (v *Video) Render(output string) {
 
+	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
+
 	cmd := exec.Command("ffmpeg",
 		"-y",
 		"-i",
 		v.filepath,
-		"-vf",
-		"scale="+strconv.Itoa(int(v.width))+":"+strconv.Itoa(int(v.height))+",setsar=1",
 		"-ss",
 		strconv.Itoa(int(v.start)),
 		"-t",
 		strconv.Itoa(int(v.end-v.start)),
+		"-vf",
+		filter_chain,
 		"-strict",
 		"-2",
 		output)
@@ -83,20 +88,23 @@ func (v *Video) SetEnd(end float64) {
 	v.end = end
 }
 
+// Trim the end of the video using seconds
+func (v *Video) SetFps(fps int64) {
+	v.fps = fps
+}
+
 // Set the width and height of the video
 func (v *Video) SetSize(width int64, height int64) {
 	v.width = width
 	v.height = height
+	v.filters = append(v.filters, "scale="+strconv.Itoa(int(width))+":"+strconv.Itoa(int(height)))
 }
 
-// Set the width of the video
-func (v *Video) SetWidth(width int64) {
+// Crop the video based on width, height, x-coordinate, and y-coordinate (from top left)
+func (v *Video) Crop(width int64, height int64, x int64, y int64) {
 	v.width = width
-}
-
-// Set the height of the video
-func (v *Video) SetHeight(height int64) {
 	v.height = height
+	v.filters = append(v.filters, "crop="+strconv.Itoa(int(width))+":"+strconv.Itoa(int(height))+":"+strconv.Itoa(int(x))+":"+strconv.Itoa(int(y)))
 }
 
 // Get the filepath of the current video struct
@@ -127,4 +135,33 @@ func (v *Video) Height() int64 {
 // Get the duration of the current video struct
 func (v *Video) Duration() float64 {
 	return v.duration
+}
+
+// Get the set fps of the current video struct
+func (v *Video) Fps() int64 {
+	return v.fps
+}
+
+// Get the current Filters using in the -vf flag of ffmpeg
+func (v *Video) Filters() []string {
+	return v.filters
+}
+
+// Get the current Filters using in the -vf flag of ffmpeg
+func (v *Video) FFMPEG(output string) string {
+	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
+	cmd := "ffmpeg" + " " +
+		"-y" + " " +
+		"-i" + " " +
+		v.filepath + " " +
+		"-ss" + " " +
+		strconv.Itoa(int(v.start)) + " " +
+		"-t" + " " +
+		strconv.Itoa(int(v.end-v.start)) + " " +
+		"-filter:v" + " " +
+		filter_chain + " " +
+		"-strict" + " " +
+		"-2" + " " +
+		output
+	return cmd
 }
