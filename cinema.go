@@ -72,18 +72,21 @@ func (v *Video) Render(output string) {
 
 }
 
-// Trim the video in seconds
+// Trim the video by giving a start and end time in seconds.
+// IMPORTANT NOTE: you will always be trimming the original video file.
 func (v *Video) Trim(start float64, end float64) {
 	v.start = start
 	v.end = end
 }
 
 // Trim to the start of the video in seconds
+// IMPORTANT NOTE: you will always be trimming the original video file.
 func (v *Video) SetStart(start float64) {
 	v.start = start
 }
 
 // Trim the end of the video using seconds
+// IMPORTANT NOTE: you will always be trimming the original video file.
 func (v *Video) SetEnd(end float64) {
 	v.end = end
 }
