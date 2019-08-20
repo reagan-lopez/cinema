@@ -39,7 +39,7 @@ func MakeVideo(filepath string) (Video, error) {
 	height := gjson.Get(json, "streams.0.height").Int()
 	duration := gjson.Get(json, "format.duration").Float()
 
-	return Video{filepath: filepath, width: width, height: height, start: 0, end: duration, duration: duration}, nil
+	return Video{filepath: filepath, width: width, height: height, fps: 30, start: 0, end: duration, duration: duration}, nil
 }
 
 // This function will take the configuration set in the Video structure and properly apply it to the rendered video.
