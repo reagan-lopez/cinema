@@ -1,12 +1,13 @@
 # cinema : a lightweight video editor for golang
 
 
-
 ![alt text](https://i.imgur.com/uYRpL29.jpg "github.com/jtguibas/cinema")
 
 ## Overview [![GoDoc](https://godoc.org/github.com/jtguibas/cinema?status.svg)](https://godoc.org/github.com/jtguibas/cinema)
 
-cinema is a super simple video editor that supports video io, video trimming, resizing, cropping and more. it is dependent on ffmpeg, an advanced command-line tool used for handling video, audio, and other multimedia files and streams. it can also be used to generate clean ffmpeg commands that do what you want. start programmatically editing videos with golang now! 
+cinema is a super simple video editor that supports video io, video trimming, resizing, cropping and more. it is dependent on ffmpeg, an advanced command-line tool used for handling video, audio, and other multimedia files and streams. it can also be used to generate clean ffmpeg commands that do what you want. start programmatically editing videos with golang now!
+
+*#1 on [trends.now.sh](https://trends.now.sh/?language=go&time=8) as of 8/22/19!*
 
 ## Install
 You must have [FFMPEG](https://ffmpeg.org/download.html) installed on your machine! Make sure `ffmpeg` and `ffprobe` are available from the command line on your machine.
