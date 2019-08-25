@@ -1,170 +1,206 @@
 package cinema
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"github.com/tidwall/gjson"
+	"time"
 )
 
-// The structure that defines the Video structure. All the values in this structure will be filled when MakeVideo is called.
+// Video contains information about a video file and all the operations that
+// need to be applied to it. Call Load to initialize a Video from file. Call the
+// transformation functions to generate the desired output. Then call Render to
+// generate the final output video file.
 type Video struct {
 	filepath string
-	width    int64
-	height   int64
-	fps      int64
-	start    float64
-	end      float64
-	duration float64
+	width    int
+	height   int
+	fps      int
+	start    time.Duration
+	end      time.Duration
+	duration time.Duration
 	filters  []string
 }
 
-// MakeVideo takes in the filepath of any videofile supported by FFMPEG.
-// It will return a Video structure with all of the values parsed from FFPROBE.
-// Note: This will not load the video into memory.
-func MakeVideo(filepath string) (Video, error) {
-	cmd := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filepath)
+// Load gives you a Video that can be operated on. Load does not open the file
+// or load it into memory. Apply operations to the Video and call Render to
+// generate the output video file.
+func Load(path string) (*Video, error) {
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		return nil, errors.New("cinema.Load: ffprobe was not found in your PATH " +
+			"environment variable, make sure to install ffmpeg " +
+			"(https://ffmpeg.org/) and add ffmpeg, ffplay and ffprobe to your " +
+			"PATH")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		return nil, errors.New("cinema.Load: unable to load file: " + err.Error())
+	}
+
+	cmd := exec.Command(
+		"ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		"-show_streams",
+		path,
+	)
 	out, err := cmd.Output()
 
 	if err != nil {
-		fmt.Println("Error: FFPROBE did not work. Check the filename and thatt ffmpeg is correctly installed.", filepath)
-		return Video{}, err
+		return nil, errors.New("cinema.Load: ffprobe failed: " + err.Error())
 	}
 
-	json := string(out)
-	width := gjson.Get(json, "streams.0.width").Int()
-	height := gjson.Get(json, "streams.0.height").Int()
-	duration := gjson.Get(json, "format.duration").Float()
+	type description struct {
+		Streams []struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"streams"`
+		Format struct {
+			DurationSec json.Number `json:"duration"`
+		} `json:"format"`
+	}
+	var desc description
+	if err := json.Unmarshal(out, &desc); err != nil {
+		return nil, errors.New("cinema.Load: unable to parse JSON output " +
+			"from ffprobe: " + err.Error())
+	}
+	if len(desc.Streams) == 0 {
+		return nil, errors.New("cinema.Load: ffprobe does not contain stream " +
+			"data, make sure the file " + path + " contains a valid video.")
+	}
 
-	return Video{filepath: filepath, width: width, height: height, fps: 30, start: 0, end: duration, duration: duration}, nil
+	secs, err := desc.Format.DurationSec.Float64()
+	if err != nil {
+		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
+			err.Error())
+	}
+	duration := time.Duration(secs*float64(time.Second) + 0.5)
+
+	return &Video{
+		filepath: path,
+		width:    desc.Streams[0].Width,
+		height:   desc.Streams[0].Height,
+		fps:      30,
+		start:    0,
+		end:      duration,
+		duration: duration,
+	}, nil
 }
 
-// This function will take the configuration set in the Video structure and properly apply it to the rendered video.
-// Currently supports trimming, scaling, and video format conversion.
-func (v *Video) Render(output string) {
-
-	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
-
-	cmd := exec.Command("ffmpeg",
-		"-y",
-		"-i",
-		v.filepath,
-		"-ss",
-		strconv.Itoa(int(v.start)),
-		"-t",
-		strconv.Itoa(int(v.end-v.start)),
-		"-vf",
-		filter_chain,
-		"-strict",
-		"-2",
-		output)
-
+// Render applies all operations to the Video and creates an output video file
+// of the given name.
+func (v *Video) Render(output string) error {
+	line := v.CommandLine(output)
+	cmd := exec.Command(line[0], line[1:]...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(err)
+		return errors.New("cinema.Video.Render: ffmpeg failed: " + err.Error())
 	}
-
+	return nil
 }
 
-// Trim the video by giving a start and end time in seconds.
-// IMPORTANT NOTE: you will always be trimming the original video file.
-func (v *Video) Trim(start float64, end float64) {
+// CommandLine returns the command line that will be used to convert the Video
+// if you were to call Render.
+func (v *Video) CommandLine(output string) []string {
+	var filters string
+	if len(v.filters) > 0 {
+		filters = strings.Join(v.filters, ",") + ","
+	}
+	filters += "setsar=1,fps=fps=" + strconv.Itoa(int(v.fps))
+
+	return []string{
+		"ffmpeg",
+		"-y",
+		"-i", v.filepath,
+		"-ss", strconv.FormatFloat(v.start.Seconds(), 'f', -1, 64),
+		"-t", strconv.FormatFloat((v.end - v.start).Seconds(), 'f', -1, 64),
+		"-vf", filters,
+		"-strict", "-2",
+		output,
+	}
+}
+
+// Trim sets the start and end time of the output video. It is always relative
+// to the original input video.
+func (v *Video) Trim(start, end time.Duration) {
 	v.start = start
 	v.end = end
 }
 
-// Trim to the start of the video in seconds
-// IMPORTANT NOTE: you will always be trimming the original video file.
-func (v *Video) SetStart(start float64) {
+// Start returns the start of the video .
+func (v *Video) Start() time.Duration {
+	return v.start
+}
+
+// SetStart sets the start time of the output video. It is always relative to
+// the original input video.
+func (v *Video) SetStart(start time.Duration) {
 	v.start = start
 }
 
-// Trim the end of the video using seconds
-// IMPORTANT NOTE: you will always be trimming the original video file.
-func (v *Video) SetEnd(end float64) {
+// End returns the end of the video.
+func (v *Video) End() time.Duration {
+	return v.end
+}
+
+// SetEnd sets the end time of the output video. It is always relative to the
+// original input video.
+func (v *Video) SetEnd(end time.Duration) {
 	v.end = end
 }
 
-// Trim the end of the video using seconds
-func (v *Video) SetFps(fps int64) {
+// SetFPS sets the framerate (frames per second) of the output video.
+func (v *Video) SetFPS(fps int) {
 	v.fps = fps
 }
 
-// Set the width and height of the video
-func (v *Video) SetSize(width int64, height int64) {
+// SetSize sets the width and height of the output video.
+func (v *Video) SetSize(width int, height int) {
 	v.width = width
 	v.height = height
-	v.filters = append(v.filters, "scale="+strconv.Itoa(int(width))+":"+strconv.Itoa(int(height)))
+	v.filters = append(v.filters, fmt.Sprintf("scale=%d:%d", width, height))
 }
 
-// Crop the video based on width, height, x-coordinate, and y-coordinate (from top left)
-func (v *Video) Crop(width int64, height int64, x int64, y int64) {
+// Width returns the width of the video in pixels.
+func (v *Video) Width() int {
+	return v.width
+}
+
+// Height returns the width of the video in pixels.
+func (v *Video) Height() int {
+	return v.height
+}
+
+// Crop makes the output video a sub-rectangle of the input video. (0,0) is the
+// top-left of the video, x goes right, y goes down.
+func (v *Video) Crop(x, y, width, height int) {
 	v.width = width
 	v.height = height
-	v.filters = append(v.filters, "crop="+strconv.Itoa(int(width))+":"+strconv.Itoa(int(height))+":"+strconv.Itoa(int(x))+":"+strconv.Itoa(int(y)))
+	v.filters = append(
+		v.filters,
+		fmt.Sprintf("crop=%d:%d:%d:%d", width, height, x, y),
+	)
 }
 
-// Get the filepath of the current video struct
+// Filepath returns the path of the input video.
 func (v *Video) Filepath() string {
 	return v.filepath
 }
 
-// Get the start of the current video struct
-func (v *Video) Start() float64 {
-	return v.start
-}
-
-// Get the end of the current video struct
-func (v *Video) End() float64 {
-	return v.end
-}
-
-// Get the width of the current video struct
-func (v *Video) Width() int64 {
-	return v.width
-}
-
-// Get the height of the current video struct
-func (v *Video) Height() int64 {
-	return v.height
-}
-
-// Get the duration of the current video struct
-func (v *Video) Duration() float64 {
+// Duration returns the duration of the video in seconds.
+func (v *Video) Duration() time.Duration {
 	return v.duration
 }
 
 // Get the set fps of the current video struct
-func (v *Video) Fps() int64 {
+func (v *Video) FPS() int {
 	return v.fps
-}
-
-// Get the current Filters using in the -vf flag of ffmpeg
-func (v *Video) Filters() []string {
-	return v.filters
-}
-
-// Get the output ffmpeg command cinema will run at .Render()
-func (v *Video) FFMPEG(output string) string {
-	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
-	cmd := "ffmpeg" + " " +
-		"-y" + " " +
-		"-i" + " " +
-		v.filepath + " " +
-		"-ss" + " " +
-		strconv.Itoa(int(v.start)) + " " +
-		"-t" + " " +
-		strconv.Itoa(int(v.end-v.start)) + " " +
-		"-filter:v" + " " +
-		filter_chain + " " +
-		"-strict" + " " +
-		"-2" + " " +
-		output
-	return cmd
 }
