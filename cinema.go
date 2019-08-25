@@ -70,20 +70,8 @@ func Load(path string) (*Video, error) {
 // Render applies all operations to the Video and creates an output video file
 // of the given name.
 func (v *Video) Render(output string) error {
-	filters := strings.Join(v.filters[:], ",")
-	filters += ",setsar=1,fps=fps=" + strconv.Itoa(int(v.fps))
-
-	cmd := exec.Command(
-		"ffmpeg",
-		"-y",
-		"-i", v.filepath,
-		"-ss", strconv.Itoa(int(v.start)),
-		"-t", strconv.Itoa(int(v.end-v.start)),
-		"-vf", filters,
-		"-strict", "-2",
-		output,
-	)
-
+	line := v.CommandLine(output)
+	cmd := exec.Command(line[0], line[1:]...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
@@ -92,6 +80,27 @@ func (v *Video) Render(output string) error {
 		return errors.New("cinema.Video.Render: ffmpeg failed: " + err.Error())
 	}
 	return nil
+}
+
+// CommandLine returns the command line that will be used to convert the Video
+// if you were to call Render.
+func (v *Video) CommandLine(output string) []string {
+	var filters string
+	if len(filters) > 0 {
+		filters = strings.Join(v.filters[:], ",") + ","
+	}
+	filters += "setsar=1,fps=fps=" + strconv.Itoa(int(v.fps))
+
+	return []string{
+		"ffmpeg",
+		"-y",
+		"-i", v.filepath,
+		"-ss", strconv.Itoa(int(v.start)),
+		"-t", strconv.Itoa(int(v.end - v.start)),
+		"-vf", filters,
+		"-strict", "-2",
+		output,
+	}
 }
 
 // Trim sets the start and end time of the output video in seconds. It is always
@@ -171,23 +180,4 @@ func (v *Video) FPS() int {
 // Get the current Filters using in the -vf flag of ffmpeg
 func (v *Video) Filters() []string {
 	return v.filters
-}
-
-// Get the output ffmpeg command cinema will run at .Render()
-func (v *Video) FFMPEG(output string) string {
-	filter_chain := strings.Join(v.filters[:], ",") + ",setsar=1" + ",fps=fps=" + strconv.Itoa(int(v.fps))
-	cmd := "ffmpeg" + " " +
-		"-y" + " " +
-		"-i" + " " +
-		v.filepath + " " +
-		"-ss" + " " +
-		strconv.Itoa(int(v.start)) + " " +
-		"-t" + " " +
-		strconv.Itoa(int(v.end-v.start)) + " " +
-		"-filter:v" + " " +
-		filter_chain + " " +
-		"-strict" + " " +
-		"-2" + " " +
-		output
-	return cmd
 }
