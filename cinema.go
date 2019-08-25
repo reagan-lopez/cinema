@@ -1,14 +1,13 @@
 package cinema
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"github.com/tidwall/gjson"
 )
 
 // Video contains information about a video file and all the operations that
@@ -55,15 +54,35 @@ func Load(path string) (*Video, error) {
 		return nil, errors.New("cinema.Load: ffprobe failed: " + err.Error())
 	}
 
-	json := string(out)
-	width := int(gjson.Get(json, "streams.0.width").Int())
-	height := int(gjson.Get(json, "streams.0.height").Int())
-	duration := gjson.Get(json, "format.duration").Float()
+	type description struct {
+		Streams []struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"streams"`
+		Format struct {
+			DurationSec json.Number `json:"duration"`
+		} `json:"format"`
+	}
+	var desc description
+	if err := json.Unmarshal(out, &desc); err != nil {
+		return nil, errors.New("cinema.Load: unable to parse JSON output " +
+			"from ffprobe: " + err.Error())
+	}
+	if len(desc.Streams) == 0 {
+		return nil, errors.New("cinema.Load: ffprobe does not contain stream " +
+			"data, make sure the file " + path + " contains a valid video.")
+	}
+
+	duration, err := desc.Format.DurationSec.Float64()
+	if err != nil {
+		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
+			err.Error())
+	}
 
 	return &Video{
 		filepath: path,
-		width:    width,
-		height:   height,
+		width:    desc.Streams[0].Width,
+		height:   desc.Streams[0].Height,
 		fps:      30,
 		start:    0,
 		end:      duration,
