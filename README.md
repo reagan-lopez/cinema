@@ -49,6 +49,6 @@ func main() {
 
 Feel free to open pull requests!
 
-## Contact
-[jtguibas](https://github.com/jtguibas)
+## Acknowledgments
+- Big thanks to [gonutz](https://github.com/gonutz) for contributing to this project!
 
