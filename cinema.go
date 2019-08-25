@@ -2,6 +2,7 @@ package cinema
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -30,7 +31,10 @@ type Video struct {
 // generate the output video file.
 func Load(path string) (*Video, error) {
 	if _, err := exec.LookPath("ffprobe"); err != nil {
-		return nil, errors.New("cinema.Load: ffprobe was not found in your PATH environment variable, make sure to install ffmpeg (https://ffmpeg.org/) and add ffmpeg, ffplay and ffprobe to your PATH")
+		return nil, errors.New("cinema.Load: ffprobe was not found in your PATH " +
+			"environment variable, make sure to install ffmpeg " +
+			"(https://ffmpeg.org/) and add ffmpeg, ffplay and ffprobe to your " +
+			"PATH")
 	}
 
 	if _, err := os.Stat(path); err != nil {
@@ -141,7 +145,7 @@ func (v *Video) SetFPS(fps int) {
 func (v *Video) SetSize(width int, height int) {
 	v.width = width
 	v.height = height
-	v.filters = append(v.filters, "scale="+strconv.Itoa(width)+":"+strconv.Itoa(height))
+	v.filters = append(v.filters, fmt.Sprintf("scale=%d:%d", width, height))
 }
 
 // Width returns the width of the video in pixels.
@@ -159,7 +163,10 @@ func (v *Video) Height() int {
 func (v *Video) Crop(x, y, width, height int) {
 	v.width = width
 	v.height = height
-	v.filters = append(v.filters, "crop="+strconv.Itoa(width)+":"+strconv.Itoa(height)+":"+strconv.Itoa(int(x))+":"+strconv.Itoa(int(y)))
+	v.filters = append(
+		v.filters,
+		fmt.Sprintf("crop=%d:%d:%d:%d", width, height, x, y),
+	)
 }
 
 // Filepath returns the path of the input video.
