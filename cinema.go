@@ -111,8 +111,8 @@ func (v *Video) Render(output string) error {
 // if you were to call Render.
 func (v *Video) CommandLine(output string) []string {
 	var filters string
-	if len(filters) > 0 {
-		filters = strings.Join(v.filters[:], ",") + ","
+	if len(v.filters) > 0 {
+		filters = strings.Join(v.filters, ",") + ","
 	}
 	filters += "setsar=1,fps=fps=" + strconv.Itoa(int(v.fps))
 
