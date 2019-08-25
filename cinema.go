@@ -176,8 +176,3 @@ func (v *Video) Duration() float64 {
 func (v *Video) FPS() int {
 	return v.fps
 }
-
-// Get the current Filters using in the -vf flag of ffmpeg
-func (v *Video) Filters() []string {
-	return v.filters
-}
