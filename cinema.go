@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Video contains information about a video file and all the operations that
@@ -19,9 +20,9 @@ type Video struct {
 	width    int
 	height   int
 	fps      int
-	start    float64
-	end      float64
-	duration float64
+	start    time.Duration
+	end      time.Duration
+	duration time.Duration
 	filters  []string
 }
 
@@ -73,11 +74,12 @@ func Load(path string) (*Video, error) {
 			"data, make sure the file " + path + " contains a valid video.")
 	}
 
-	duration, err := desc.Format.DurationSec.Float64()
+	secs, err := desc.Format.DurationSec.Float64()
 	if err != nil {
 		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
 			err.Error())
 	}
+	duration := time.Duration(secs*float64(time.Second) + 0.5)
 
 	return &Video{
 		filepath: path,
@@ -118,40 +120,40 @@ func (v *Video) CommandLine(output string) []string {
 		"ffmpeg",
 		"-y",
 		"-i", v.filepath,
-		"-ss", strconv.Itoa(int(v.start)),
-		"-t", strconv.Itoa(int(v.end - v.start)),
+		"-ss", strconv.FormatFloat(v.start.Seconds(), 'f', -1, 64),
+		"-t", strconv.FormatFloat((v.end - v.start).Seconds(), 'f', -1, 64),
 		"-vf", filters,
 		"-strict", "-2",
 		output,
 	}
 }
 
-// Trim sets the start and end time of the output video in seconds. It is always
-// relative to the original input video.
-func (v *Video) Trim(start, end float64) {
+// Trim sets the start and end time of the output video. It is always relative
+// to the original input video.
+func (v *Video) Trim(start, end time.Duration) {
 	v.start = start
 	v.end = end
 }
 
-// Start returns the start of the video in seconds.
-func (v *Video) Start() float64 {
+// Start returns the start of the video .
+func (v *Video) Start() time.Duration {
 	return v.start
 }
 
-// SetStart sets the start time of the output video in seconds. It is always
-// relative to the original input video.
-func (v *Video) SetStart(start float64) {
+// SetStart sets the start time of the output video. It is always relative to
+// the original input video.
+func (v *Video) SetStart(start time.Duration) {
 	v.start = start
 }
 
-// End returns the end of the video in seconds.
-func (v *Video) End() float64 {
+// End returns the end of the video.
+func (v *Video) End() time.Duration {
 	return v.end
 }
 
-// SetEnd sets the end time of the output video in seconds. It is always
-// relative to the original input video.
-func (v *Video) SetEnd(end float64) {
+// SetEnd sets the end time of the output video. It is always relative to the
+// original input video.
+func (v *Video) SetEnd(end time.Duration) {
 	v.end = end
 }
 
@@ -194,7 +196,7 @@ func (v *Video) Filepath() string {
 }
 
 // Duration returns the duration of the video in seconds.
-func (v *Video) Duration() float64 {
+func (v *Video) Duration() time.Duration {
 	return v.duration
 }
 
