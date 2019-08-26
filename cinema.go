@@ -59,6 +59,10 @@ func Load(path string) (*Video, error) {
 		Streams []struct {
 			Width  int `json:"width"`
 			Height int `json:"height"`
+			Tags   struct {
+				// Rotation is optional -> use a pointer.
+				Rotation *json.Number `json:"rotate"`
+			} `json:"tags"`
 		} `json:"streams"`
 		Format struct {
 			DurationSec json.Number `json:"duration"`
@@ -81,10 +85,27 @@ func Load(path string) (*Video, error) {
 	}
 	duration := time.Duration(secs*float64(time.Second) + 0.5)
 
+	width := desc.Streams[0].Width
+	height := desc.Streams[0].Height
+	if desc.Streams[0].Tags.Rotation != nil {
+		// If the video is rotated by -270, -90, 90 or 270 degrees, we need to
+		// flip the width and height because they will be reported in unrotated
+		// coordinates while cropping etc. works on the rotated dimensions.
+		rotation, err := desc.Streams[0].Tags.Rotation.Int64()
+		if err != nil {
+			return nil, errors.New("cinema.Load: ffprobe returned invalid " +
+				"rotation: " + err.Error())
+		}
+		flipCount := rotation / 90
+		if flipCount%2 != 0 {
+			width, height = height, width
+		}
+	}
+
 	return &Video{
 		filepath: path,
-		width:    desc.Streams[0].Width,
-		height:   desc.Streams[0].Height,
+		width:    width,
+		height:   height,
 		fps:      30,
 		start:    0,
 		end:      duration,
