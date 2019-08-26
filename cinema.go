@@ -83,6 +83,8 @@ func Load(path string) (*Video, error) {
 		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
 			err.Error())
 	}
+	
+	// round seconds (floating point value) up to time.Duration, seconds will be >= 0 so adding 0.5 rounds to the right integer Duration value
 	duration := time.Duration(secs*float64(time.Second) + 0.5)
 
 	width := desc.Streams[0].Width
