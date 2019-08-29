@@ -153,10 +153,13 @@ func (v *Video) CommandLine(output string) []string {
 }
 
 // Trim sets the start and end time of the output video. It is always relative
-// to the original input video.
+// to the original input video. start must be less than or equal to end or
+// nothing will change.
 func (v *Video) Trim(start, end time.Duration) {
-	v.start = start
-	v.end = end
+	if start <= end {
+		v.SetStart(start)
+		v.SetEnd(end)
+	}
 }
 
 // Start returns the start of the video .
@@ -167,7 +170,21 @@ func (v *Video) Start() time.Duration {
 // SetStart sets the start time of the output video. It is always relative to
 // the original input video.
 func (v *Video) SetStart(start time.Duration) {
-	v.start = start
+	v.start = v.clampToDuration(start)
+	if v.start > v.end {
+		// keep c.start <= v.end
+		v.end = v.start
+	}
+}
+
+func (v *Video) clampToDuration(t time.Duration) time.Duration {
+	if t < 0 {
+		t = 0
+	}
+	if t > v.duration {
+		t = v.duration
+	}
+	return t
 }
 
 // End returns the end of the video.
@@ -178,7 +195,11 @@ func (v *Video) End() time.Duration {
 // SetEnd sets the end time of the output video. It is always relative to the
 // original input video.
 func (v *Video) SetEnd(end time.Duration) {
-	v.end = end
+	v.end = v.clampToDuration(end)
+	if v.end < v.start {
+		// keep c.start <= v.end
+		v.start = v.end
+	}
 }
 
 // SetFPS sets the framerate (frames per second) of the output video.
