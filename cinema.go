@@ -83,8 +83,9 @@ func Load(path string) (*Video, error) {
 		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
 			err.Error())
 	}
-	
-	// round seconds (floating point value) up to time.Duration, seconds will be >= 0 so adding 0.5 rounds to the right integer Duration value
+
+	// Round seconds (floating point value) up to time.Duration. seconds will
+	// be >= 0 so adding 0.5 rounds to the right integer Duration value.
 	duration := time.Duration(secs*float64(time.Second) + 0.5)
 
 	width := desc.Streams[0].Width
@@ -218,7 +219,10 @@ func (v *Video) Filepath() string {
 	return v.filepath
 }
 
-// Duration returns the duration of the video in seconds.
+// Duration returns the duration of the original input video. It does not
+// account for any trim operation (Trim, SetStart, SetEnd).
+// To get the current trimmed duration use
+//     v.End() - v.Start()
 func (v *Video) Duration() time.Duration {
 	return v.duration
 }
