@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -16,14 +17,15 @@ import (
 // transformation functions to generate the desired output. Then call Render to
 // generate the final output video file.
 type Video struct {
-	filepath string
-	width    int
-	height   int
-	fps      int
-	start    time.Duration
-	end      time.Duration
-	duration time.Duration
-	filters  []string
+	filepath       string
+	width          int
+	height         int
+	fps            int
+	start          time.Duration
+	end            time.Duration
+	duration       time.Duration
+	filters        []string
+	additionalArgs []string
 }
 
 // Load gives you a Video that can be operated on. Load does not open the file
@@ -117,12 +119,20 @@ func Load(path string) (*Video, error) {
 }
 
 // Render applies all operations to the Video and creates an output video file
-// of the given name.
+// of the given name. This method won't return anything on stdout / stderr.
+// If you need to read ffmpeg's outputs, use RenderWithStreams
 func (v *Video) Render(output string) error {
+	return v.RenderWithStreams(output, nil, nil)
+}
+
+// RenderWithStreams applies all operations to the Video and creates an output video file
+// of the given name. By specifying an output stream and an error stream, you can read
+// ffmpeg's stdout and stderr.
+func (v *Video) RenderWithStreams(output string, os io.Writer, es io.Writer) error {
 	line := v.CommandLine(output)
 	cmd := exec.Command(line[0], line[1:]...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
+	cmd.Stderr = es
+	cmd.Stdout = os
 
 	err := cmd.Run()
 	if err != nil {
@@ -140,16 +150,24 @@ func (v *Video) CommandLine(output string) []string {
 	}
 	filters += "setsar=1,fps=fps=" + strconv.Itoa(int(v.fps))
 
-	return []string{
+	additionalArgs := v.additionalArgs
+
+	cmdline := []string{
 		"ffmpeg",
 		"-y",
 		"-i", v.filepath,
 		"-ss", strconv.FormatFloat(v.start.Seconds(), 'f', -1, 64),
 		"-t", strconv.FormatFloat((v.end - v.start).Seconds(), 'f', -1, 64),
-		"-vf", filters,
-		"-strict", "-2",
-		output,
 	}
+	cmdline = append(cmdline, additionalArgs...)
+	cmdline = append(cmdline, "-vf", filters, "-strict", "-2")
+	cmdline = append(cmdline, output)
+	return cmdline
+}
+
+// Mute mutes the video
+func (v *Video) Mute() {
+	v.additionalArgs = append(v.additionalArgs, "-an")
 }
 
 // Trim sets the start and end time of the output video. It is always relative
