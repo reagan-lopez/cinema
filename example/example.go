@@ -23,6 +23,7 @@ func main() {
 	video.Crop(0, 0, 200, 200)                 // crop rectangle top-left (0,0) with size 200x200
 	video.SetSize(400, 400)                    // resize cropped 200x200 video to a 400x400
 	video.SetFPS(48)                           // set the output framerate to 48 frames per second
+	video.SetBitrate(200_000)                  // set the output bitrate of 200 kbps
 	video.Render("test_output.mov")            // note format conversion by file extension
 
 	// you can also generate the command line instead of applying it directly
