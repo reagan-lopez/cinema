@@ -21,6 +21,7 @@ type Video struct {
 	width          int
 	height         int
 	fps            int
+	bitrate        int
 	start          time.Duration
 	end            time.Duration
 	duration       time.Duration
@@ -68,6 +69,7 @@ func Load(path string) (*Video, error) {
 		} `json:"streams"`
 		Format struct {
 			DurationSec json.Number `json:"duration"`
+			Bitrate json.Number `json:"bit_rate"`
 		} `json:"format"`
 	}
 	var desc description
@@ -81,6 +83,11 @@ func Load(path string) (*Video, error) {
 	}
 
 	secs, err := desc.Format.DurationSec.Float64()
+	if err != nil {
+		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
+			err.Error())
+	}
+	bitrate, err := desc.Format.Bitrate.Int64()
 	if err != nil {
 		return nil, errors.New("cinema.Load: ffprobe returned invalid duration: " +
 			err.Error())
@@ -112,6 +119,7 @@ func Load(path string) (*Video, error) {
 		width:    width,
 		height:   height,
 		fps:      30,
+		bitrate:  int(bitrate),
 		start:    0,
 		end:      duration,
 		duration: duration,
@@ -158,6 +166,7 @@ func (v *Video) CommandLine(output string) []string {
 		"-i", v.filepath,
 		"-ss", strconv.FormatFloat(v.start.Seconds(), 'f', -1, 64),
 		"-t", strconv.FormatFloat((v.end - v.start).Seconds(), 'f', -1, 64),
+		"-vb", strconv.Itoa(v.bitrate),
 	}
 	cmdline = append(cmdline, additionalArgs...)
 	cmdline = append(cmdline, "-vf", filters, "-strict", "-2")
@@ -225,6 +234,11 @@ func (v *Video) SetFPS(fps int) {
 	v.fps = fps
 }
 
+// SetBitrate sets the bitrate of the output video.
+func (v *Video) SetBitrate(bitrate int) {
+	v.bitrate = bitrate
+}
+
 // SetSize sets the width and height of the output video.
 func (v *Video) SetSize(width int, height int) {
 	v.width = width
@@ -269,4 +283,9 @@ func (v *Video) Duration() time.Duration {
 // Get the set fps of the current video struct
 func (v *Video) FPS() int {
 	return v.fps
+}
+
+// Get the set bitrate of the current video struct
+func (v *Video) Bitrate() int {
+	return v.bitrate
 }
