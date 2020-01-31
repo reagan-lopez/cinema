@@ -97,13 +97,21 @@ func Load(path string) (*Video, error) {
 	// be >= 0 so adding 0.5 rounds to the right integer Duration value.
 	duration := time.Duration(secs*float64(time.Second) + 0.5)
 
-	width := desc.Streams[0].Width
-	height := desc.Streams[0].Height
-	if desc.Streams[0].Tags.Rotation != nil {
+	dsIndex := 0
+	for index, v := range desc.Streams {
+		if v.Width != 0 && v.Height != 0 {
+			dsIndex = index
+			break
+		}
+	}
+
+	width := desc.Streams[dsIndex].Width
+	height := desc.Streams[dsIndex].Height
+	if desc.Streams[dsIndex].Tags.Rotation != nil {
 		// If the video is rotated by -270, -90, 90 or 270 degrees, we need to
 		// flip the width and height because they will be reported in unrotated
 		// coordinates while cropping etc. works on the rotated dimensions.
-		rotation, err := desc.Streams[0].Tags.Rotation.Int64()
+		rotation, err := desc.Streams[dsIndex].Tags.Rotation.Int64()
 		if err != nil {
 			return nil, errors.New("cinema.Load: ffprobe returned invalid " +
 				"rotation: " + err.Error())
